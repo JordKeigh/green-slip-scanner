@@ -12,7 +12,7 @@
 <main>
 <div class="top"><div><h1>Green Slip Scanner</h1><div class="small">Reads only the Date + Student Name + Lesson handwriting</div></div><div class="row"><button id="startBtn">Start camera</button><button id="stopBtn" class="secondary" disabled>Stop Scanning</button></div></div>
 <div class="card"><div class="row"><input id="appsUrl" type="url" placeholder="Apps Script /exec URL"><button id="saveBtn" class="secondary">Save URL</button></div><div class="row" style="margin-top:8px"><input id="session" maxlength="6" inputmode="numeric" placeholder="6-digit session"><button id="useBtn" class="secondary">Use session</button></div><div class="small" style="margin-top:7px">Session: <b id="sessionLabel">—</b></div></div>
-<div class="camera"><video id="video" playsinline muted autoplay></video><div class="shade"></div><div class="hint">Keep the Date, Student Name and Lesson section somewhere inside this box</div><div class="target"><span>Date + Student Name + Lesson</span></div></div>
+<div class="camera"><video id="video" playsinline muted autoplay></video><div class="shade"></div><div class="hint">Put the Date / Student Name / Lesson area anywhere inside this box</div><div class="target"><span>Date + Student Name + Lesson</span></div></div>
 <canvas id="scanCanvas"></canvas>
 <div class="msg" id="msg">Choose the batch, then start the camera.</div><div class="detail" id="detail"></div>
 <div class="card"><div class="result"><b>Name read</b><span id="nameRead">—</span><b>Date read</b><span id="dateRead">—</span><b>Lesson read</b><span id="lessonRead">—</span><b>Confidence</b><span id="confidence">—</span></div><div id="editBox" class="edit"><input id="nameEdit" placeholder="Correct the student name"><input id="dateEdit" placeholder="Date — e.g. 2/9/26"><input id="lessonEdit" placeholder="Correct the lesson"><button id="retryBtn" style="margin-top:8px;width:100%">Record corrected details</button></div></div>
@@ -50,59 +50,105 @@ async function attemptRecord(name,date,lesson,conf){if(!session){msg('<span clas
 function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function frameSignature(){const w=32,h=24,t=document.createElement('canvas');t.width=w;t.height=h;const c=t.getContext('2d',{willReadFrequently:true});c.drawImage(video,0,0,w,h);const d=c.getImageData(0,0,w,h).data,a=new Uint8Array(w*h);for(let i=0,j=0;i<d.length;i+=4,j++)a[j]=(d[i]*3+d[i+1]*6+d[i+2])/10;return a;}
 function diffSig(a,b){if(!a||!b||a.length!==b.length)return 999;let s=0;for(let i=0;i<a.length;i++)s+=Math.abs(a[i]-b[i]);return s/a.length;}
-async function ensureWorker(){if(worker)return;msg('Loading OCR engine…');worker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')detail('Reading Date, Student Name and Lesson… '+Math.round((m.progress||0)*100)+'%')}});}
+async function ensureWorker(){if(worker)return;msg('Loading OCR engine…');worker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')detail('Locating labels and reading handwriting… '+Math.round((m.progress||0)*100)+'%')}});}
 function cropAndEnhance(canvas,ctx,xPct,yPct,wPct,hPct){
  const sx=Math.round(video.videoWidth*xPct),sy=Math.round(video.videoHeight*yPct),sw=Math.round(video.videoWidth*wPct),sh=Math.round(video.videoHeight*hPct);const scale=Math.max(2,Math.min(3,1600/sw));canvas.width=Math.round(sw*scale);canvas.height=Math.round(sh*scale);ctx.drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
  const img=ctx.getImageData(0,0,canvas.width,canvas.height),d=img.data,vals=[];for(let i=0;i<d.length;i+=16)vals.push(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);vals.sort((a,b)=>a-b);const lo=vals[Math.floor(vals.length*.08)]||0,hi=vals[Math.floor(vals.length*.92)]||255,span=Math.max(25,hi-lo);for(let i=0;i<d.length;i+=4){let g=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;g=Math.max(0,Math.min(255,(g-lo)*255/span));g=Math.pow(g/255,0.82)*255;d[i]=d[i+1]=d[i+2]=g;d[i+3]=255;}ctx.putImageData(img,0,0);
 }
-async function ocrAll(){
- await worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});
- const r=await worker.recognize(scanCanvas);
- return {text:r.data.text||'',conf:Number(r.data.confidence||0)};
+function enhanceRegion(srcCanvas, mode='text'){
+ const out=document.createElement('canvas');
+ const scale=Math.max(1.8, Math.min(3.2, 1500/Math.max(1,srcCanvas.width)));
+ out.width=Math.round(srcCanvas.width*scale); out.height=Math.round(srcCanvas.height*scale);
+ const c=out.getContext('2d',{willReadFrequently:true});
+ c.imageSmoothingEnabled=true; c.drawImage(srcCanvas,0,0,out.width,out.height);
+ const img=c.getImageData(0,0,out.width,out.height),d=img.data,vals=[];
+ for(let i=0;i<d.length;i+=16){
+   // suppress green paper by favouring ink that is darker than local green background
+   const r=d[i],g=d[i+1],b=d[i+2];
+   const gray=.299*r+.587*g+.114*b;
+   vals.push(gray);
+ }
+ vals.sort((a,b)=>a-b);
+ const lo=vals[Math.floor(vals.length*.06)]||0, hi=vals[Math.floor(vals.length*.90)]||255, span=Math.max(30,hi-lo);
+ for(let i=0;i<d.length;i+=4){
+   const r=d[i],g=d[i+1],b=d[i+2];
+   let gray=.299*r+.587*g+.114*b;
+   gray=Math.max(0,Math.min(255,(gray-lo)*255/span));
+   // stronger local contrast for handwriting
+   gray=gray<150?Math.max(0,gray*0.62):Math.min(255,170+(gray-150)*1.7);
+   if(mode==='date') gray=gray<170?0:255;
+   d[i]=d[i+1]=d[i+2]=gray; d[i+3]=255;
+ }
+ c.putImageData(img,0,0); return out;
 }
-function parseAllFields(text){
- const raw=String(text||'');
- const lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
- let date='',name='',lesson='';
- for(let i=0;i<lines.length;i++){
-   const line=lines[i];
-   if(!date && /\bdate\b/i.test(line)){
-     date=parseDate(line.replace(/^.*?\bdate\b\s*[:.\-]*\s*/i,''));
-     if(!date && i+1<lines.length) date=parseDate(lines[i+1]);
-   }
-   if(!name && /student\s*name/i.test(line)){
-     const after=line.replace(/^.*?student\s*name\s*[:.\-]*\s*/i,'');
-     if(looksName(after)) name=cleanName(after);
-     if(!name && i+1<lines.length && looksName(lines[i+1])) name=cleanName(lines[i+1]);
-   }
-   if(!lesson && /\blesson\b/i.test(line)){
-     const after=cleanLesson(line.replace(/^.*?\blesson\b\s*[:.\-]*\s*/i,''));
-     if(after) lesson=after;
-     if(!lesson && i+1<lines.length) lesson=cleanLesson(lines[i+1]);
-   }
+async function ocrCanvas(canvas, psm=Tesseract.PSM.SINGLE_LINE, whitelist=''){
+ const params={tessedit_pageseg_mode:psm,preserve_interword_spaces:'1'};
+ if(whitelist) params.tessedit_char_whitelist=whitelist;
+ else params.tessedit_char_whitelist='';
+ await worker.setParameters(params);
+ const r=await worker.recognize(canvas);
+ return {text:(r.data.text||'').trim(),conf:Number(r.data.confidence||0),data:r.data};
+}
+function wordBoxes(data){
+ const arr=Array.isArray(data&&data.words)?data.words:[];
+ return arr.map(w=>({text:String(w.text||'').trim(),x0:w.bbox?.x0??0,y0:w.bbox?.y0??0,x1:w.bbox?.x1??0,y1:w.bbox?.y1??0,conf:Number(w.confidence??w.conf??0)})).filter(w=>w.text);
+}
+function normWord(s){return String(s||'').toLowerCase().replace(/[^a-z]/g,'');}
+function findAnchors(words){
+ let date=null,student=null,nameWord=null,lesson=null;
+ for(const w of words){const n=normWord(w.text); if(!date && (n==='date'||n.startsWith('date')))date=w; if(!lesson && (n==='lesson'||n.startsWith('lesson')))lesson=w; if(!student && (n==='student'||n.startsWith('student')))student=w; if(!nameWord && (n==='name'||n.startsWith('name')))nameWord=w;}
+ let studentName=null;
+ if(student&&nameWord){
+   const dy=Math.abs((student.y0+student.y1)/2-(nameWord.y0+nameWord.y1)/2);
+   if(dy<Math.max(30,(student.y1-student.y0)*1.5)) studentName={x0:Math.min(student.x0,nameWord.x0),y0:Math.min(student.y0,nameWord.y0),x1:Math.max(student.x1,nameWord.x1),y1:Math.max(student.y1,nameWord.y1)};
  }
- if(!date) date=parseDate(raw);
- if(!name){
-   const candidates=lines.map(cleanName).filter(looksName).filter(x=>!/date|student|name|lesson|headteacher|commendation|please|achievement|points|well done/i.test(x));
-   if(candidates.length) name=candidates.sort((a,b)=>a.length-b.length)[0];
- }
- if(!lesson){
-   const li=lines.findIndex(x=>/\blesson\b/i.test(x));
-   if(li>=0 && li+1<lines.length) lesson=cleanLesson(lines[li+1]);
- }
- return {name,date,lesson};
+ if(!studentName) studentName=student||nameWord;
+ return {date,studentName,lesson};
+}
+function cropRightOfAnchor(src,anchor,topPad=.6,bottomPad=.8){
+ if(!anchor)return null; const h=Math.max(18,anchor.y1-anchor.y0), y0=Math.max(0,Math.round(anchor.y0-h*topPad)), y1=Math.min(src.height,Math.round(anchor.y1+h*bottomPad));
+ const x0=Math.min(src.width-10,Math.max(0,Math.round(anchor.x1+8))), x1=src.width;
+ if(x1-x0<25||y1-y0<15)return null;
+ const out=document.createElement('canvas');out.width=x1-x0;out.height=y1-y0;out.getContext('2d').drawImage(src,x0,y0,out.width,out.height,0,0,out.width,out.height);return out;
+}
+function fallbackRows(src){
+ // If a printed label is momentarily missed, use broad horizontal bands inside the single box.
+ const make=(y,h)=>{const c=document.createElement('canvas');c.width=Math.round(src.width*.72);c.height=Math.round(src.height*h);c.getContext('2d').drawImage(src,Math.round(src.width*.28),Math.round(src.height*y),c.width,c.height,0,0,c.width,c.height);return c;};
+ return {date:make(.02,.27),name:make(.30,.34),lesson:make(.65,.32)};
+}
+async function readThreeFields(){
+ // First pass is deliberately tuned for the PRINTED labels, not the handwriting.
+ const labelCanvas=enhanceRegion(scanCanvas,'text');
+ const labelResult=await ocrCanvas(labelCanvas,Tesseract.PSM.SPARSE_TEXT,'');
+ const words=wordBoxes(labelResult.data), anchors=findAnchors(words);
+ // Scale anchor coordinates back because labelCanvas is enlarged.
+ const sx=scanCanvas.width/labelCanvas.width, sy=scanCanvas.height/labelCanvas.height;
+ const remap=a=>a?({x0:a.x0*sx,y0:a.y0*sy,x1:a.x1*sx,y1:a.y1*sy}):null;
+ const da=remap(anchors.date), na=remap(anchors.studentName), la=remap(anchors.lesson);
+ let dateCrop=cropRightOfAnchor(scanCanvas,da,.7,.9), nameCrop=cropRightOfAnchor(scanCanvas,na,.7,1.0), lessonCrop=cropRightOfAnchor(scanCanvas,la,.7,1.0);
+ const fb=fallbackRows(scanCanvas); dateCrop=dateCrop||fb.date; nameCrop=nameCrop||fb.name; lessonCrop=lessonCrop||fb.lesson;
+ const dateImg=enhanceRegion(dateCrop,'date'), nameImg=enhanceRegion(nameCrop,'text'), lessonImg=enhanceRegion(lessonCrop,'text');
+ const [dr,nr,lr]=await Promise.all([
+   ocrCanvas(dateImg,Tesseract.PSM.SINGLE_LINE,'0123456789/-. '),
+   ocrCanvas(nameImg,Tesseract.PSM.SINGLE_LINE,''),
+   ocrCanvas(lessonImg,Tesseract.PSM.SINGLE_LINE,'')
+ ]);
+ const date=parseDate(dr.text), name=parseName(nr.text), lesson=cleanLesson(lr.text);
+ const found=[date?dr.conf:0,name?nr.conf:0,lesson?lr.conf:0].filter(x=>x>0);
+ const conf=found.length?found.reduce((a,b)=>a+b,0)/found.length:0;
+ return {date,name,lesson,conf,labelText:labelResult.text,anchorsFound:[!!da,!!na,!!la].filter(Boolean).length};
 }
 async function scanOnce(){
- if(!running||busy||!video.videoWidth)return;const sig=frameSignature(),movement=diffSig(lastFrameSig,sig);lastFrameSig=sig;if(locked){if(movement>12)changeScore++;else changeScore=Math.max(0,changeScore-1);if(changeScore>=2){locked=false;changeScore=0;candidateKey='';candidateCount=0;msg('Ready for next slip…');detail('Put the next slip so the Date, Student Name and Lesson section is inside the box.');}return;}busy=true;
+ if(!running||busy||!video.videoWidth)return;const sig=frameSignature(),movement=diffSig(lastFrameSig,sig);lastFrameSig=sig;if(locked){if(movement>12)changeScore++;else changeScore=Math.max(0,changeScore-1);if(changeScore>=2){locked=false;changeScore=0;candidateKey='';candidateCount=0;msg('Ready for next slip…');detail('Show the next slip with the three labelled rows somewhere inside the box.');}return;}busy=true;
  try{
   cropAndEnhance(scanCanvas,scanCtx,.06,.39,.88,.42);
-  const rr=await ocrAll(),fields=parseAllFields(rr.text),date=fields.date,name=fields.name,lesson=fields.lesson,conf=Math.round(rr.conf);
+  const rr=await readThreeFields(),date=rr.date,name=rr.name,lesson=rr.lesson,conf=Math.round(rr.conf);
   $('nameRead').textContent=name||'—';$('dateRead').textContent=date||'—';$('lessonRead').textContent=lesson||'—';$('confidence').textContent=conf+'%';
   if(name&&date&&lesson){const key=(name+'|'+date+'|'+lesson).toLowerCase();candidateCount=(key===candidateKey)?candidateCount+1:1;candidateKey=key;if(conf>=72||candidateCount>=2){await attemptRecord(name,date,lesson,conf);}else{msg('<span class="warn">Reading… hold still</span>');detail('I read '+name+' · '+date+' · '+lesson+'. Checking once more before recording.');}}
-  else{candidateKey='';candidateCount=0;msg('<span class="warn">Hold the slip steady…</span>');detail(!date&&!name&&!lesson?'Keep the Date, Student Name and Lesson section inside the box.':!date?'I can see the slip but cannot read the date yet.':!name?'I can see the slip but cannot read the student name yet.':'I can see the slip but cannot read the lesson yet.');}
+  else{candidateKey='';candidateCount=0;msg('<span class="warn">Hold the slip steady…</span>');detail(!date&&!name&&!lesson?'Keep the three labelled rows somewhere inside the box.':!date?'I can see the slip but cannot read the date yet.':!name?'I can see the slip but cannot read the student name yet.':'I can see the slip but cannot read the lesson yet.');}
  }catch(e){detail(e.message||String(e));}finally{busy=false;}
 }
-async function startCamera(){if(running||startingCamera)return;if(!appsUrl||!session){msg('<span class="warn">Set the Apps Script URL and session first.</span>');return;}startingCamera=true;$('startBtn').disabled=true;$('startBtn').textContent='Starting…';try{await ensureWorker();if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Camera access is not supported in this browser.');if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}video.pause();video.srcObject=null;stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await new Promise((resolve,reject)=>{if(video.readyState>=2)return resolve();const ok=()=>{cleanup();resolve()},bad=()=>{cleanup();reject(new Error('Camera stream could not load.'))},cleanup=()=>{video.removeEventListener('loadedmetadata',ok);video.removeEventListener('canplay',ok);video.removeEventListener('error',bad)};video.addEventListener('loadedmetadata',ok,{once:true});video.addEventListener('canplay',ok,{once:true});video.addEventListener('error',bad,{once:true});setTimeout(()=>{cleanup();resolve()},2500);});try{await video.play();}catch(e){if(e&&e.name!=='AbortError')throw e;await new Promise(r=>setTimeout(r,250));if(video.paused)await video.play();}running=true;$('startBtn').textContent='Camera on';$('stopBtn').disabled=false;msg('Ready — keep the Date, Student Name and Lesson section inside the box.');if(scanTimer)clearInterval(scanTimer);scanTimer=setInterval(scanOnce,700);}catch(e){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}video.srcObject=null;running=false;$('startBtn').disabled=false;$('startBtn').textContent='Start camera';msg('<span class="bad">Camera could not start.</span>');detail(e.message||String(e));}finally{startingCamera=false;if(running)$('startBtn').disabled=true;}}
+async function startCamera(){if(running||startingCamera)return;if(!appsUrl||!session){msg('<span class="warn">Set the Apps Script URL and session first.</span>');return;}startingCamera=true;$('startBtn').disabled=true;$('startBtn').textContent='Starting…';try{await ensureWorker();if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Camera access is not supported in this browser.');if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}video.pause();video.srcObject=null;stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await new Promise((resolve,reject)=>{if(video.readyState>=2)return resolve();const ok=()=>{cleanup();resolve()},bad=()=>{cleanup();reject(new Error('Camera stream could not load.'))},cleanup=()=>{video.removeEventListener('loadedmetadata',ok);video.removeEventListener('canplay',ok);video.removeEventListener('error',bad)};video.addEventListener('loadedmetadata',ok,{once:true});video.addEventListener('canplay',ok,{once:true});video.addEventListener('error',bad,{once:true});setTimeout(()=>{cleanup();resolve()},2500);});try{await video.play();}catch(e){if(e&&e.name!=='AbortError')throw e;await new Promise(r=>setTimeout(r,250));if(video.paused)await video.play();}running=true;$('startBtn').textContent='Camera on';$('stopBtn').disabled=false;msg('Ready — put the Date / Student Name / Lesson area anywhere inside the box.');if(scanTimer)clearInterval(scanTimer);scanTimer=setInterval(scanOnce,700);}catch(e){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}video.srcObject=null;running=false;$('startBtn').disabled=false;$('startBtn').textContent='Start camera';msg('<span class="bad">Camera could not start.</span>');detail(e.message||String(e));}finally{startingCamera=false;if(running)$('startBtn').disabled=true;}}
 function stopCamera(){
  running=false;busy=false;locked=false;candidateKey='';candidateCount=0;changeScore=0;lastFrameSig=null;
  if(scanTimer){clearInterval(scanTimer);scanTimer=null;}
