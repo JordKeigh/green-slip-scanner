@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Green Slip OCR Scanner</title>
 <style>
-:root{font-family:Arial,Helvetica,sans-serif;color:#f8fafc;background:#0f172a}*{box-sizing:border-box}body{margin:0;background:#0f172a;color:#fff}main{max-width:700px;margin:auto;padding:14px}.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}h1{font-size:24px;margin:0}.small{font-size:13px;color:#cbd5e1}.card{background:#172238;border:1px solid #334155;border-radius:12px;padding:12px;margin-top:12px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}input,button{font:inherit;border-radius:10px;padding:10px 12px}input{border:1px solid #64748b;background:#fff;color:#111827;min-width:0}button{border:0;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}button.secondary{background:#334155}button:disabled{opacity:.5}.camera{position:relative;background:#000;border-radius:14px;overflow:hidden;margin-top:12px;aspect-ratio:3/4}video{width:100%;height:100%;object-fit:cover}.shade{position:absolute;inset:0;box-shadow:inset 0 0 0 999px rgba(0,0,0,.18);pointer-events:none}.target{position:absolute;left:35%;right:5%;border:3px solid rgba(255,255,255,.95);border-radius:10px;box-shadow:0 0 0 2px rgba(15,23,42,.3);pointer-events:none}.target.date{top:42%;height:10%}.target.name{top:55%;height:11%}.target.lesson{top:68%;height:11%}.target span{position:absolute;top:-30px;left:0;background:rgba(15,23,42,.9);padding:5px 8px;border-radius:8px;font-size:12px;white-space:nowrap}.hint{position:absolute;left:5%;right:5%;top:18%;text-align:center;background:rgba(15,23,42,.82);padding:7px 9px;border-radius:9px;font-size:12px;pointer-events:none}.msg{background:#111d33;border:1px solid #30405f;border-radius:12px;padding:14px;margin-top:12px;font-size:20px;font-weight:700;min-height:58px}.detail{font-size:13px;color:#cbd5e1;margin-top:8px;min-height:20px}.ok{color:#7ee787}.warn{color:#ffd166}.bad{color:#ff8f8f}.result{display:grid;grid-template-columns:95px 1fr;gap:8px;font-size:14px}.result b{color:#cbd5e1}.edit{display:none}.edit.show{display:block}.edit input{width:100%;margin-top:8px}.privacy{font-size:12px;line-height:1.45;color:#cbd5e1}canvas{display:none}@media(max-width:520px){.row input{width:100%}}
+:root{font-family:Arial,Helvetica,sans-serif;color:#f8fafc;background:#0f172a}*{box-sizing:border-box}body{margin:0;background:#0f172a;color:#fff}main{max-width:700px;margin:auto;padding:14px}.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}h1{font-size:24px;margin:0}.small{font-size:13px;color:#cbd5e1}.card{background:#172238;border:1px solid #334155;border-radius:12px;padding:12px;margin-top:12px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}input,button{font:inherit;border-radius:10px;padding:10px 12px}input{border:1px solid #64748b;background:#fff;color:#111827;min-width:0}button{border:0;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}button.secondary{background:#334155}button:disabled{opacity:.5}.camera{position:relative;background:#000;border-radius:14px;overflow:hidden;margin-top:12px;aspect-ratio:3/4}video{width:100%;height:100%;object-fit:cover}.shade{position:absolute;inset:0;box-shadow:inset 0 0 0 999px rgba(0,0,0,.18);pointer-events:none}.target{position:absolute;left:6%;right:6%;top:39%;height:42%;border:3px solid rgba(255,255,255,.95);border-radius:12px;box-shadow:0 0 0 2px rgba(15,23,42,.3);pointer-events:none}.target span{position:absolute;top:-30px;left:0;background:rgba(15,23,42,.9);padding:5px 8px;border-radius:8px;font-size:12px;white-space:nowrap}.hint{position:absolute;left:5%;right:5%;top:18%;text-align:center;background:rgba(15,23,42,.82);padding:7px 9px;border-radius:9px;font-size:12px;pointer-events:none}.msg{background:#111d33;border:1px solid #30405f;border-radius:12px;padding:14px;margin-top:12px;font-size:20px;font-weight:700;min-height:58px}.detail{font-size:13px;color:#cbd5e1;margin-top:8px;min-height:20px}.ok{color:#7ee787}.warn{color:#ffd166}.bad{color:#ff8f8f}.result{display:grid;grid-template-columns:95px 1fr;gap:8px;font-size:14px}.result b{color:#cbd5e1}.edit{display:none}.edit.show{display:block}.edit input{width:100%;margin-top:8px}.privacy{font-size:12px;line-height:1.45;color:#cbd5e1}canvas{display:none}@media(max-width:520px){.row input{width:100%}}
 </style>
 </head>
 <body>
 <main>
 <div class="top"><div><h1>Green Slip Scanner</h1><div class="small">Reads only the Date + Student Name + Lesson handwriting</div></div><div class="row"><button id="startBtn">Start camera</button><button id="stopBtn" class="secondary" disabled>Stop Scanning</button></div></div>
 <div class="card"><div class="row"><input id="appsUrl" type="url" placeholder="Apps Script /exec URL"><button id="saveBtn" class="secondary">Save URL</button></div><div class="row" style="margin-top:8px"><input id="session" maxlength="6" inputmode="numeric" placeholder="6-digit session"><button id="useBtn" class="secondary">Use session</button></div><div class="small" style="margin-top:7px">Session: <b id="sessionLabel">—</b></div></div>
-<div class="camera"><video id="video" playsinline muted autoplay></video><div class="shade"></div><div class="hint">Line the handwritten entries up with the three boxes</div><div class="target date"><span>Date writing</span></div><div class="target name"><span>Student name writing</span></div><div class="target lesson"><span>Lesson writing</span></div></div>
-<canvas id="dateCanvas"></canvas><canvas id="nameCanvas"></canvas><canvas id="lessonCanvas"></canvas>
+<div class="camera"><video id="video" playsinline muted autoplay></video><div class="shade"></div><div class="hint">Keep the Date, Student Name and Lesson section somewhere inside this box</div><div class="target"><span>Date + Student Name + Lesson</span></div></div>
+<canvas id="scanCanvas"></canvas>
 <div class="msg" id="msg">Choose the batch, then start the camera.</div><div class="detail" id="detail"></div>
 <div class="card"><div class="result"><b>Name read</b><span id="nameRead">—</span><b>Date read</b><span id="dateRead">—</span><b>Lesson read</b><span id="lessonRead">—</span><b>Confidence</b><span id="confidence">—</span></div><div id="editBox" class="edit"><input id="nameEdit" placeholder="Correct the student name"><input id="dateEdit" placeholder="Date — e.g. 2/9/26"><input id="lessonEdit" placeholder="Correct the lesson"><button id="retryBtn" style="margin-top:8px;width:100%">Record corrected details</button></div></div>
 <div class="card privacy"><b>Privacy:</b> camera frames are processed in memory only. No image is saved, downloaded or uploaded. Only the extracted student name, slip date, lesson, OCR confidence and session code are sent to the Apps Script backend.</div>
@@ -21,9 +21,7 @@
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 const $=id=>document.getElementById(id),video=$('video');
-const dateCanvas=$('dateCanvas'),dateCtx=dateCanvas.getContext('2d',{willReadFrequently:true});
-const nameCanvas=$('nameCanvas'),nameCtx=nameCanvas.getContext('2d',{willReadFrequently:true});
-const lessonCanvas=$('lessonCanvas'),lessonCtx=lessonCanvas.getContext('2d',{willReadFrequently:true});
+const scanCanvas=$('scanCanvas'),scanCtx=scanCanvas.getContext('2d',{willReadFrequently:true});
 let stream=null,running=false,startingCamera=false,worker=null,busy=false,session='',appsUrl='',locked=false,lastFrameSig=null,changeScore=0,scanTimer=null;
 let candidateKey='',candidateCount=0;
 function load(){const p=new URLSearchParams(location.search);appsUrl=(p.get('apps')||localStorage.getItem('greenSlipAppsUrl')||'').trim();session=(p.get('session')||'').replace(/\D/g,'').slice(0,6);$('appsUrl').value=appsUrl;$('session').value=session;$('sessionLabel').textContent=session||'—';}
@@ -52,25 +50,59 @@ async function attemptRecord(name,date,lesson,conf){if(!session){msg('<span clas
 function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function frameSignature(){const w=32,h=24,t=document.createElement('canvas');t.width=w;t.height=h;const c=t.getContext('2d',{willReadFrequently:true});c.drawImage(video,0,0,w,h);const d=c.getImageData(0,0,w,h).data,a=new Uint8Array(w*h);for(let i=0,j=0;i<d.length;i+=4,j++)a[j]=(d[i]*3+d[i+1]*6+d[i+2])/10;return a;}
 function diffSig(a,b){if(!a||!b||a.length!==b.length)return 999;let s=0;for(let i=0;i<a.length;i++)s+=Math.abs(a[i]-b[i]);return s/a.length;}
-async function ensureWorker(){if(worker)return;msg('Loading OCR engine…');worker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')detail('Reading the three fields… '+Math.round((m.progress||0)*100)+'%')}});}
+async function ensureWorker(){if(worker)return;msg('Loading OCR engine…');worker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')detail('Reading Date, Student Name and Lesson… '+Math.round((m.progress||0)*100)+'%')}});}
 function cropAndEnhance(canvas,ctx,xPct,yPct,wPct,hPct){
- const sx=Math.round(video.videoWidth*xPct),sy=Math.round(video.videoHeight*yPct),sw=Math.round(video.videoWidth*wPct),sh=Math.round(video.videoHeight*hPct);const scale=Math.max(2,Math.min(3,1400/sw));canvas.width=Math.round(sw*scale);canvas.height=Math.round(sh*scale);ctx.drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
- const img=ctx.getImageData(0,0,canvas.width,canvas.height),d=img.data,vals=[];for(let i=0;i<d.length;i+=16)vals.push(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);vals.sort((a,b)=>a-b);const lo=vals[Math.floor(vals.length*.08)]||0,hi=vals[Math.floor(vals.length*.92)]||255,span=Math.max(25,hi-lo);for(let i=0;i<d.length;i+=4){let g=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;g=Math.max(0,Math.min(255,(g-lo)*255/span));g=Math.pow(g/255,0.85)*255;d[i]=d[i+1]=d[i+2]=g;d[i+3]=255;}ctx.putImageData(img,0,0);
+ const sx=Math.round(video.videoWidth*xPct),sy=Math.round(video.videoHeight*yPct),sw=Math.round(video.videoWidth*wPct),sh=Math.round(video.videoHeight*hPct);const scale=Math.max(2,Math.min(3,1600/sw));canvas.width=Math.round(sw*scale);canvas.height=Math.round(sh*scale);ctx.drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
+ const img=ctx.getImageData(0,0,canvas.width,canvas.height),d=img.data,vals=[];for(let i=0;i<d.length;i+=16)vals.push(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);vals.sort((a,b)=>a-b);const lo=vals[Math.floor(vals.length*.08)]||0,hi=vals[Math.floor(vals.length*.92)]||255,span=Math.max(25,hi-lo);for(let i=0;i<d.length;i+=4){let g=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;g=Math.max(0,Math.min(255,(g-lo)*255/span));g=Math.pow(g/255,0.82)*255;d[i]=d[i+1]=d[i+2]=g;d[i+3]=255;}ctx.putImageData(img,0,0);
 }
-async function ocrDate(){await worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE,tessedit_char_whitelist:'0123456789/.- ',preserve_interword_spaces:'1'});const r=await worker.recognize(dateCanvas);return {text:r.data.text||'',conf:Number(r.data.confidence||0)};}
-async function ocrName(){await worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE,tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'- ",preserve_interword_spaces:'1'});const r=await worker.recognize(nameCanvas);return {text:r.data.text||'',conf:Number(r.data.confidence||0)};}
-async function ocrLesson(){await worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE,tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'&+-/. ",preserve_interword_spaces:'1'});const r=await worker.recognize(lessonCanvas);return {text:r.data.text||'',conf:Number(r.data.confidence||0)};}
+async function ocrAll(){
+ await worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});
+ const r=await worker.recognize(scanCanvas);
+ return {text:r.data.text||'',conf:Number(r.data.confidence||0)};
+}
+function parseAllFields(text){
+ const raw=String(text||'');
+ const lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ let date='',name='',lesson='';
+ for(let i=0;i<lines.length;i++){
+   const line=lines[i];
+   if(!date && /\bdate\b/i.test(line)){
+     date=parseDate(line.replace(/^.*?\bdate\b\s*[:.\-]*\s*/i,''));
+     if(!date && i+1<lines.length) date=parseDate(lines[i+1]);
+   }
+   if(!name && /student\s*name/i.test(line)){
+     const after=line.replace(/^.*?student\s*name\s*[:.\-]*\s*/i,'');
+     if(looksName(after)) name=cleanName(after);
+     if(!name && i+1<lines.length && looksName(lines[i+1])) name=cleanName(lines[i+1]);
+   }
+   if(!lesson && /\blesson\b/i.test(line)){
+     const after=cleanLesson(line.replace(/^.*?\blesson\b\s*[:.\-]*\s*/i,''));
+     if(after) lesson=after;
+     if(!lesson && i+1<lines.length) lesson=cleanLesson(lines[i+1]);
+   }
+ }
+ if(!date) date=parseDate(raw);
+ if(!name){
+   const candidates=lines.map(cleanName).filter(looksName).filter(x=>!/date|student|name|lesson|headteacher|commendation|please|achievement|points|well done/i.test(x));
+   if(candidates.length) name=candidates.sort((a,b)=>a.length-b.length)[0];
+ }
+ if(!lesson){
+   const li=lines.findIndex(x=>/\blesson\b/i.test(x));
+   if(li>=0 && li+1<lines.length) lesson=cleanLesson(lines[li+1]);
+ }
+ return {name,date,lesson};
+}
 async function scanOnce(){
- if(!running||busy||!video.videoWidth)return;const sig=frameSignature(),movement=diffSig(lastFrameSig,sig);lastFrameSig=sig;if(locked){if(movement>12)changeScore++;else changeScore=Math.max(0,changeScore-1);if(changeScore>=2){locked=false;changeScore=0;candidateKey='';candidateCount=0;msg('Ready for next slip…');detail('Line up the next handwritten date, name and lesson with the boxes.');}return;}busy=true;
+ if(!running||busy||!video.videoWidth)return;const sig=frameSignature(),movement=diffSig(lastFrameSig,sig);lastFrameSig=sig;if(locked){if(movement>12)changeScore++;else changeScore=Math.max(0,changeScore-1);if(changeScore>=2){locked=false;changeScore=0;candidateKey='';candidateCount=0;msg('Ready for next slip…');detail('Put the next slip so the Date, Student Name and Lesson section is inside the box.');}return;}busy=true;
  try{
-  cropAndEnhance(dateCanvas,dateCtx,.35,.42,.60,.10);cropAndEnhance(nameCanvas,nameCtx,.35,.55,.60,.11);cropAndEnhance(lessonCanvas,lessonCtx,.35,.68,.60,.11);
-  const dr=await ocrDate(),nr=await ocrName(),lr=await ocrLesson(),date=parseDate(dr.text),name=parseName(nr.text),lesson=parseLesson(lr.text),conf=Math.round((dr.conf+nr.conf+lr.conf)/3);
+  cropAndEnhance(scanCanvas,scanCtx,.06,.39,.88,.42);
+  const rr=await ocrAll(),fields=parseAllFields(rr.text),date=fields.date,name=fields.name,lesson=fields.lesson,conf=Math.round(rr.conf);
   $('nameRead').textContent=name||'—';$('dateRead').textContent=date||'—';$('lessonRead').textContent=lesson||'—';$('confidence').textContent=conf+'%';
   if(name&&date&&lesson){const key=(name+'|'+date+'|'+lesson).toLowerCase();candidateCount=(key===candidateKey)?candidateCount+1:1;candidateKey=key;if(conf>=72||candidateCount>=2){await attemptRecord(name,date,lesson,conf);}else{msg('<span class="warn">Reading… hold still</span>');detail('I read '+name+' · '+date+' · '+lesson+'. Checking once more before recording.');}}
-  else{candidateKey='';candidateCount=0;msg('<span class="warn">Hold the slip steady…</span>');detail(!date&&!name&&!lesson?'Line the handwriting up with all three boxes.':!date?'I cannot read the date in the top box yet.':!name?'I cannot read the student name in the middle box yet.':'I cannot read the lesson in the bottom box yet.');}
+  else{candidateKey='';candidateCount=0;msg('<span class="warn">Hold the slip steady…</span>');detail(!date&&!name&&!lesson?'Keep the Date, Student Name and Lesson section inside the box.':!date?'I can see the slip but cannot read the date yet.':!name?'I can see the slip but cannot read the student name yet.':'I can see the slip but cannot read the lesson yet.');}
  }catch(e){detail(e.message||String(e));}finally{busy=false;}
 }
-async function startCamera(){if(running||startingCamera)return;if(!appsUrl||!session){msg('<span class="warn">Set the Apps Script URL and session first.</span>');return;}startingCamera=true;$('startBtn').disabled=true;$('startBtn').textContent='Starting…';try{await ensureWorker();if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Camera access is not supported in this browser.');if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}video.pause();video.srcObject=null;stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await new Promise((resolve,reject)=>{if(video.readyState>=2)return resolve();const ok=()=>{cleanup();resolve()},bad=()=>{cleanup();reject(new Error('Camera stream could not load.'))},cleanup=()=>{video.removeEventListener('loadedmetadata',ok);video.removeEventListener('canplay',ok);video.removeEventListener('error',bad)};video.addEventListener('loadedmetadata',ok,{once:true});video.addEventListener('canplay',ok,{once:true});video.addEventListener('error',bad,{once:true});setTimeout(()=>{cleanup();resolve()},2500);});try{await video.play();}catch(e){if(e&&e.name!=='AbortError')throw e;await new Promise(r=>setTimeout(r,250));if(video.paused)await video.play();}running=true;$('startBtn').textContent='Camera on';$('stopBtn').disabled=false;msg('Ready — line up the handwritten date, name and lesson with the three boxes.');if(scanTimer)clearInterval(scanTimer);scanTimer=setInterval(scanOnce,700);}catch(e){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}video.srcObject=null;running=false;$('startBtn').disabled=false;$('startBtn').textContent='Start camera';msg('<span class="bad">Camera could not start.</span>');detail(e.message||String(e));}finally{startingCamera=false;if(running)$('startBtn').disabled=true;}}
+async function startCamera(){if(running||startingCamera)return;if(!appsUrl||!session){msg('<span class="warn">Set the Apps Script URL and session first.</span>');return;}startingCamera=true;$('startBtn').disabled=true;$('startBtn').textContent='Starting…';try{await ensureWorker();if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Camera access is not supported in this browser.');if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}video.pause();video.srcObject=null;stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await new Promise((resolve,reject)=>{if(video.readyState>=2)return resolve();const ok=()=>{cleanup();resolve()},bad=()=>{cleanup();reject(new Error('Camera stream could not load.'))},cleanup=()=>{video.removeEventListener('loadedmetadata',ok);video.removeEventListener('canplay',ok);video.removeEventListener('error',bad)};video.addEventListener('loadedmetadata',ok,{once:true});video.addEventListener('canplay',ok,{once:true});video.addEventListener('error',bad,{once:true});setTimeout(()=>{cleanup();resolve()},2500);});try{await video.play();}catch(e){if(e&&e.name!=='AbortError')throw e;await new Promise(r=>setTimeout(r,250));if(video.paused)await video.play();}running=true;$('startBtn').textContent='Camera on';$('stopBtn').disabled=false;msg('Ready — keep the Date, Student Name and Lesson section inside the box.');if(scanTimer)clearInterval(scanTimer);scanTimer=setInterval(scanOnce,700);}catch(e){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}video.srcObject=null;running=false;$('startBtn').disabled=false;$('startBtn').textContent='Start camera';msg('<span class="bad">Camera could not start.</span>');detail(e.message||String(e));}finally{startingCamera=false;if(running)$('startBtn').disabled=true;}}
 function stopCamera(){
  running=false;busy=false;locked=false;candidateKey='';candidateCount=0;changeScore=0;lastFrameSig=null;
  if(scanTimer){clearInterval(scanTimer);scanTimer=null;}
