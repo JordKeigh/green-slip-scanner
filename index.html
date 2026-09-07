@@ -12,7 +12,7 @@
 <main>
 <div class="top"><div><h1>Green Slip Scanner</h1><div class="small">Live OCR · no photos saved</div></div><button id="startBtn">Start camera</button></div>
 <div class="card"><div class="row"><input id="appsUrl" type="url" placeholder="Apps Script /exec URL"><button id="saveBtn" class="secondary">Save URL</button></div><div class="row" style="margin-top:8px"><input id="session" maxlength="6" inputmode="numeric" placeholder="6-digit session"><button id="useBtn" class="secondary">Use session</button></div><div class="small" style="margin-top:7px">Session: <b id="sessionLabel">—</b></div></div>
-<div class="camera"><video id="video" playsinline muted></video><div class="guide"><span>Keep the name + date inside this box</span></div></div><canvas id="canvas"></canvas>
+<div class="camera"><video id="video" playsinline muted autoplay></video><div class="guide"><span>Keep the name + date inside this box</span></div></div><canvas id="canvas"></canvas>
 <div class="msg" id="msg">Choose the batch, then start the camera.</div><div class="detail" id="detail"></div>
 <div class="card"><div class="result"><b>Name read</b><span id="nameRead">—</span><b>Date read</b><span id="dateRead">—</span><b>OCR</b><span id="confidence">—</span></div><div id="editBox" class="edit"><input id="nameEdit" placeholder="Correct the student name"><input id="dateEdit" placeholder="DD/MM/YYYY"><button id="retryBtn" style="margin-top:8px;width:100%">Try corrected details</button></div></div>
 <div class="card privacy"><b>Privacy:</b> camera frames are processed in memory only. No image is saved, downloaded or uploaded. Only the extracted student name, slip date, OCR confidence and session code are sent to the Apps Script backend.</div>
@@ -20,7 +20,7 @@
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);const video=$('video'),canvas=$('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
-let stream=null,running=false,worker=null,busy=false,session='',appsUrl='',locked=false,lastFrameSig=null,changeScore=0;
+let stream=null,running=false,startingCamera=false,worker=null,busy=false,session='',appsUrl='',locked=false,lastFrameSig=null,changeScore=0,scanTimer=null;
 function load(){const p=new URLSearchParams(location.search);appsUrl=(p.get('apps')||localStorage.getItem('greenSlipAppsUrl')||'').trim();session=(p.get('session')||'').replace(/\D/g,'').slice(0,6);$('appsUrl').value=appsUrl;$('session').value=session;$('sessionLabel').textContent=session||'—';}
 function msg(html){$('msg').innerHTML=html;}function detail(t){$('detail').textContent=t||'';}
 $('saveBtn').onclick=()=>{appsUrl=$('appsUrl').value.trim();try{localStorage.setItem('greenSlipAppsUrl',appsUrl)}catch(e){}msg('<span class="ok">Apps Script URL saved.</span>');};
@@ -47,7 +47,33 @@ function frameSignature(){const w=32,h=24;const t=document.createElement('canvas
 function diffSig(a,b){if(!a||!b||a.length!==b.length)return 999;let s=0;for(let i=0;i<a.length;i++)s+=Math.abs(a[i]-b[i]);return s/a.length;}
 async function ensureWorker(){if(worker)return;msg('Loading OCR engine…');worker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')detail('Reading text… '+Math.round((m.progress||0)*100)+'%')}});await worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.SPARSE_TEXT,preserve_interword_spaces:'1'});}
 async function scanOnce(){if(!running||busy||!video.videoWidth)return;const sig=frameSignature();const movement=diffSig(lastFrameSig,sig);lastFrameSig=sig;if(locked){if(movement>12)changeScore++;else changeScore=Math.max(0,changeScore-1);if(changeScore>=2){locked=false;changeScore=0;msg('Ready for next slip…');detail('Hold the next slip steady inside the box.');}return;}busy=true;try{const sx=video.videoWidth*.08,sy=video.videoHeight*.23,sw=video.videoWidth*.84,sh=video.videoHeight*.54;const scale=Math.min(1,1100/sw);canvas.width=Math.round(sw*scale);canvas.height=Math.round(sh*scale);ctx.drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);const result=await worker.recognize(canvas);const text=result.data.text||'';const conf=Number(result.data.confidence||0);const name=parseName(text),date=parseDate(text);$('nameRead').textContent=name||'—';$('dateRead').textContent=date||'—';$('confidence').textContent=Math.round(conf)+'%';if(name&&date&&conf>=55){await attemptRecord(name,date,conf);}else{msg('<span class="warn">Hold the slip steady…</span>');detail(!name?'I cannot confidently find a pupil name.':!date?'I cannot find a date in DD/MM/YYYY format.':'OCR confidence is low.');}}catch(e){detail(e.message||String(e));}finally{busy=false;}}
-async function startCamera(){if(running)return;if(!appsUrl||!session){msg('<span class="warn">Set the Apps Script URL and session first.</span>');return;}try{await ensureWorker();stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;await video.play();running=true;$('startBtn').textContent='Camera on';$('startBtn').disabled=true;msg('Ready — hold the top green slip inside the box.');setInterval(scanOnce,450);}catch(e){msg('<span class="bad">Camera could not start.</span>');detail(e.message||String(e));}}
+async function startCamera(){
+ if(running||startingCamera)return;
+ if(!appsUrl||!session){msg('<span class="warn">Set the Apps Script URL and session first.</span>');return;}
+ startingCamera=true;$('startBtn').disabled=true;$('startBtn').textContent='Starting…';
+ try{
+  await ensureWorker();
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Camera access is not supported in this browser.');
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  video.pause();video.srcObject=null;
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+  video.srcObject=stream;
+  await new Promise((resolve,reject)=>{
+   if(video.readyState>=2)return resolve();
+   const ok=()=>{cleanup();resolve()};const bad=()=>{cleanup();reject(new Error('Camera stream could not load.'))};
+   const cleanup=()=>{video.removeEventListener('loadedmetadata',ok);video.removeEventListener('canplay',ok);video.removeEventListener('error',bad)};
+   video.addEventListener('loadedmetadata',ok,{once:true});video.addEventListener('canplay',ok,{once:true});video.addEventListener('error',bad,{once:true});
+   setTimeout(()=>{cleanup();resolve()},2500);
+  });
+  try{await video.play();}catch(e){if(e&&e.name!=='AbortError')throw e;await new Promise(r=>setTimeout(r,250));if(video.paused)await video.play();}
+  running=true;$('startBtn').textContent='Camera on';msg('Ready — hold the top green slip inside the box.');
+  if(scanTimer)clearInterval(scanTimer);scanTimer=setInterval(scanOnce,450);
+ }catch(e){
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  video.srcObject=null;running=false;$('startBtn').disabled=false;$('startBtn').textContent='Start camera';
+  msg('<span class="bad">Camera could not start.</span>');detail(e.message||String(e));
+ }finally{startingCamera=false;if(running)$('startBtn').disabled=true;}
+}
 $('startBtn').onclick=startCamera;load();
 </script>
 </body>
